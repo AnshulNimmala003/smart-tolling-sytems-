@@ -1,6 +1,6 @@
 Smart Tolling System Using Machine Learning 
 
-Objective
+Objective:
 
 The Smart Tolling System leverages Machine Learning (ML), Optical Character Recognition (OCR), and AI-powered fraud detection to automate toll collection, improve efficiency, and reduce revenue leakage in toll systems. The project aims to eliminate manual intervention, minimize traffic congestion, and enhance security by detecting fraudulent activities.
 
