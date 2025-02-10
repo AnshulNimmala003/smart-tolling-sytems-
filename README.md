@@ -61,4 +61,5 @@ Expected Outcomes
 	•	Supports green tolling with digital transactions, reducing paper usage.
 	8.	Real-Time Monitoring & Analytics 📊
 	•	A dashboard provides insights into traffic patterns, revenue, and violations.
-	•	Enables predictive analytics for better toll system planning.
+	•	Enables predictive analytics for better toll system planning
+
