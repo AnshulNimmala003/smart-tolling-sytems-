@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+models/*.pt
+data/samples/
+.DS_Store
+CLAUDE.md

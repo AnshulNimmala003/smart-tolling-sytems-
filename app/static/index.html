@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Smart Tolling System — AI Toll Plaza Demo</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; margin: 0; }
+    body {
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      background: #0a0a0f; color: #d4d4d8;
+      min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
+      padding: 2rem 1rem;
+    }
+    h1 { color: #fff; font-size: 1.6rem; margin-bottom: .25rem; }
+    .sub { color: #71717a; margin-bottom: 2rem; font-size: .95rem; }
+    .drop {
+      border: 2px dashed #3f3f46; border-radius: 14px; padding: 3rem 2rem;
+      width: min(680px, 100%); text-align: center; cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    .drop:hover, .drop.over { border-color: #818cf8; background: #818cf80d; }
+    .drop input { display: none; }
+    .btn {
+      display: inline-block; margin-top: 1rem; background: #6366f1; color: #fff;
+      padding: .65rem 1.4rem; border-radius: 8px; font-weight: 600; border: 0; cursor: pointer;
+    }
+    .btn:hover { background: #818cf8; }
+    #status { margin: 1.25rem 0; color: #a1a1aa; min-height: 1.4em; }
+    #result { width: min(900px, 100%); display: none; }
+    #result img { width: 100%; border-radius: 12px; border: 1px solid #27272a; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: .92rem; }
+    th, td { text-align: left; padding: .55rem .7rem; border-bottom: 1px solid #27272a; }
+    th { color: #a1a1aa; font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
+    .ok { color: #34d399; font-weight: 600; }
+    .deny { color: #f87171; font-weight: 600; }
+    .plate { font-family: ui-monospace, monospace; background: #18181b; padding: .15rem .5rem; border-radius: 6px; }
+    footer { margin-top: auto; padding-top: 2.5rem; color: #52525b; font-size: .85rem; }
+    footer a { color: #818cf8; }
+  </style>
+</head>
+<body>
+  <h1>🛣️ Smart Tolling System</h1>
+  <p class="sub">Upload a photo of traffic — AI detects vehicles, reads plates, and prices the toll.</p>
+
+  <label class="drop" id="drop">
+    <input type="file" id="file" accept="image/jpeg,image/png" />
+    <div>📷 Drop an image here, or click to choose</div>
+    <span class="btn">Choose Image</span>
+  </label>
+
+  <p id="status"></p>
+
+  <div id="result">
+    <img id="preview" alt="Annotated detection result" />
+    <table id="table">
+      <thead>
+        <tr><th>Vehicle</th><th>Plate</th><th>OCR conf.</th><th>Toll</th><th>Gate</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <footer>
+    YOLOv8 vehicle + plate detection · EasyOCR ·
+    <a href="https://github.com/AnshulNimmala003/smart-tolling-sytems-" rel="noopener">source on GitHub</a>
+  </footer>
+
+  <script>
+    const drop = document.getElementById("drop");
+    const fileInput = document.getElementById("file");
+    const statusEl = document.getElementById("status");
+    const result = document.getElementById("result");
+    const preview = document.getElementById("preview");
+    const tbody = document.querySelector("#table tbody");
+
+    async function processFile(file) {
+      if (!file) return;
+      statusEl.textContent = "Analyzing… (first request loads the models, ~20s)";
+      result.style.display = "none";
+
+      const body = new FormData();
+      body.append("file", file);
+      try {
+        const res = await fetch("/api/process", { method: "POST", body });
+        if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
+        const data = await res.json();
+
+        preview.src = data.annotated_image;
+        tbody.innerHTML = "";
+        for (const v of data.vehicles) {
+          const t = v.toll;
+          tbody.insertAdjacentHTML("beforeend", `
+            <tr>
+              <td>${v.label} (${Math.round(v.confidence * 100)}%)</td>
+              <td>${v.plate_text ? `<span class="plate">${v.plate_text}</span>` : "—"}</td>
+              <td>${v.extras?.ocr_confidence ?? "—"}</td>
+              <td>₹${t.toll_amount}</td>
+              <td class="${t.allowed ? "ok" : "deny"}">${t.allowed ? "OPEN" : "CLOSED"} · ${t.reason}</td>
+            </tr>`);
+        }
+        statusEl.textContent = data.vehicles.length
+          ? `Done in ${data.processing_seconds}s — ${data.vehicles.length} vehicle(s) found.`
+          : "No vehicles detected — try a clearer photo.";
+        result.style.display = "block";
+      } catch (err) {
+        statusEl.textContent = "Error: " + err.message;
+      }
+    }
+
+    fileInput.addEventListener("change", () => processFile(fileInput.files[0]));
+    drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+    drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+    drop.addEventListener("drop", (e) => {
+      e.preventDefault(); drop.classList.remove("over");
+      processFile(e.dataTransfer.files[0]);
+    });
+  </script>
+</body>
+</html>
