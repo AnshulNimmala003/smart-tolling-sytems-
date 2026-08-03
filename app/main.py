@@ -8,8 +8,10 @@ plus a base64-encoded annotated preview image.
 """
 
 import base64
+import csv
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -32,6 +34,35 @@ BLACKLIST = {"MH12DE1433", "STOLEN1"}
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024
 
+# Every processed vehicle is logged as a toll transaction, in the same schema
+# the fraud analytics (analytics/fraud.py + dashboard) consume.
+CAMERA_LOG = Path(__file__).resolve().parents[1] / "data" / "camera_transactions.csv"
+CAMERA_PLAZA = "PLAZA-A"  # where this demo camera "lives"
+TX_COLUMNS = [
+    "timestamp", "plaza", "plate", "vehicle_class",
+    "billed_class", "amount_charged", "paid", "injected_fraud",
+]
+
+
+def log_transactions(records: list[dict]) -> None:
+    CAMERA_LOG.parent.mkdir(exist_ok=True)
+    is_new = not CAMERA_LOG.exists()
+    with CAMERA_LOG.open("a", newline="") as f:
+        writer = csv.writer(f)
+        if is_new:
+            writer.writerow(TX_COLUMNS)
+        for r in records:
+            writer.writerow([
+                datetime.now().isoformat(timespec="seconds"),
+                CAMERA_PLAZA,
+                r["plate_text"] or "UNREADABLE",
+                r["label"],
+                r["label"],
+                r["toll"]["toll_amount"],
+                r["toll"]["allowed"],  # gate closed = passage not paid
+                "none",
+            ])
+
 
 @app.post("/api/process")
 async def process(file: UploadFile = File(...)):
@@ -52,6 +83,9 @@ async def process(file: UploadFile = File(...)):
     start = time.perf_counter()
     records = process_image(img, blacklist=BLACKLIST)
     elapsed = time.perf_counter() - start
+
+    if records:
+        log_transactions(records)
 
     annotated = annotate(img, records)
     ok, buf = cv2.imencode(".jpg", annotated, [cv2.IMWRITE_JPEG_QUALITY, 85])

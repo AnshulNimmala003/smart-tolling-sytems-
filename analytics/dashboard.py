@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fraud import detect, evaluate  # noqa: E402
 
 DATA = Path(__file__).resolve().parents[1] / "data" / "transactions.csv"
+CAMERA = Path(__file__).resolve().parents[1] / "data" / "camera_transactions.csv"
 
 # Validated categorical palette (dataviz reference, light mode, fixed order).
 CLASS_COLORS = {
@@ -30,22 +31,37 @@ FRAUD_BAR = "#e34948"
 st.set_page_config(page_title="Smart Toll — Fraud Analytics", page_icon="🛣️", layout="wide")
 
 
-@st.cache_data
-def load() -> pd.DataFrame:
-    if not DATA.exists():
-        st.error("No data — run `python analytics/simulate.py` first.")
+@st.cache_data(ttl=10)  # short TTL so fresh camera uploads appear quickly
+def load(source: str) -> pd.DataFrame:
+    frames = []
+    if source in ("Simulated month", "Both") and DATA.exists():
+        frames.append(pd.read_csv(DATA, parse_dates=["timestamp"]))
+    if source in ("Camera demo", "Both") and CAMERA.exists():
+        frames.append(pd.read_csv(CAMERA, parse_dates=["timestamp"]))
+    if not frames:
+        st.warning(
+            "No data for this source yet. Run `python analytics/simulate.py` "
+            "for simulated data, or process images in the web demo "
+            "(`uvicorn app.main:app`) to generate camera transactions."
+        )
         st.stop()
-    return detect(pd.read_csv(DATA, parse_dates=["timestamp"]))
+    return detect(pd.concat(frames, ignore_index=True))
 
-
-df = load()
 
 st.title("🛣️ Smart Toll — Operations & Fraud Analytics")
 st.caption(
-    "Simulated month of ANPR toll transactions across three plazas. "
-    "Rule engine + Isolation Forest flag fraud; detector is scored against "
-    "the simulator's injected ground truth."
+    "Live feed from the ANPR camera demo plus a simulated month across three "
+    "plazas. Rule engine + Isolation Forest flag fraud; the detector is scored "
+    "against the simulator's injected ground truth."
 )
+
+source = st.radio(
+    "Data source",
+    ["Simulated month", "Camera demo", "Both"],
+    horizontal=True,
+    help="Camera demo = real transactions logged by the web demo at localhost:8080",
+)
+df = load(source)
 
 # ---- filters (one row above the charts) ---------------------------------
 fcol1, fcol2 = st.columns([2, 1])
