@@ -69,6 +69,25 @@ def health():
     return {"status": "ok"}
 
 
+SAMPLES_DIR = Path(__file__).resolve().parents[1] / "data" / "samples"
+
+
+@app.get("/api/samples")
+def list_samples():
+    """Example images the UI offers for one-click demos."""
+    if not SAMPLES_DIR.exists():
+        return {"samples": []}
+    return {"samples": sorted(p.name for p in SAMPLES_DIR.glob("*.jpg"))[:6]}
+
+
+@app.get("/samples/{name}")
+def get_sample(name: str):
+    path = (SAMPLES_DIR / name).resolve()
+    if path.parent != SAMPLES_DIR.resolve() or not path.exists():
+        raise HTTPException(404, "No such sample")
+    return FileResponse(path)
+
+
 @app.get("/")
 def index():
     return FileResponse(STATIC_DIR / "index.html")

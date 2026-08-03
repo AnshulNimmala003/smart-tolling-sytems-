@@ -5,80 +5,232 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Smart Tolling System — AI Toll Plaza Demo</title>
   <style>
-    :root { color-scheme: dark; }
+    :root {
+      color-scheme: dark;
+      --bg: #09090b; --raised: #131318; --line: #26262b;
+      --accent: #818cf8; --accent-strong: #6366f1;
+      --ok: #34d399; --bad: #f87171; --warn: #fbbf24;
+    }
     * { box-sizing: border-box; margin: 0; }
     body {
       font-family: ui-sans-serif, system-ui, sans-serif;
-      background: #0a0a0f; color: #d4d4d8;
-      min-height: 100dvh; display: flex; flex-direction: column; align-items: center;
-      padding: 2rem 1rem;
+      background: var(--bg); color: #d4d4d8; line-height: 1.55;
+      background-image:
+        linear-gradient(to right, #71717a12 1px, transparent 1px),
+        linear-gradient(to bottom, #71717a12 1px, transparent 1px);
+      background-size: 3rem 3rem;
     }
-    h1 { color: #fff; font-size: 1.6rem; margin-bottom: .25rem; }
-    .sub { color: #71717a; margin-bottom: 2rem; font-size: .95rem; }
+    .wrap { max-width: 980px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+    header { text-align: center; margin-bottom: 2.5rem; }
+    h1 { color: #fff; font-size: clamp(1.7rem, 4vw, 2.4rem); letter-spacing: -.02em; }
+    h1 .grad {
+      background: linear-gradient(90deg, var(--accent), #c084fc, #f472b6);
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+    }
+    .tagline { color: #a1a1aa; max-width: 620px; margin: .75rem auto 0; }
+
+    /* Problem stats */
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .9rem; margin: 2rem 0 2.75rem; }
+    .stat {
+      background: var(--raised); border: 1px solid var(--line); border-radius: 14px;
+      padding: 1.1rem 1.25rem; text-align: left;
+    }
+    .stat b { display: block; color: #fff; font-size: 1.35rem; margin-bottom: .2rem; }
+    .stat span { font-size: .85rem; color: #a1a1aa; }
+    .stat small { display:block; margin-top:.45rem; font-size:.72rem; color:#63636b; }
+
+    /* Drop zone */
     .drop {
-      border: 2px dashed #3f3f46; border-radius: 14px; padding: 3rem 2rem;
-      width: min(680px, 100%); text-align: center; cursor: pointer;
-      transition: border-color .2s, background .2s;
+      display: block; border: 2px dashed #3f3f46; border-radius: 16px;
+      padding: 2.6rem 2rem; text-align: center; cursor: pointer;
+      transition: border-color .2s, background .2s, transform .15s;
+      background: #0e0e13cc;
     }
-    .drop:hover, .drop.over { border-color: #818cf8; background: #818cf80d; }
+    .drop:hover, .drop.over { border-color: var(--accent); background: #818cf80f; transform: scale(1.005); }
     .drop input { display: none; }
+    .drop .icon { font-size: 2.2rem; display: block; margin-bottom: .5rem; }
     .btn {
-      display: inline-block; margin-top: 1rem; background: #6366f1; color: #fff;
-      padding: .65rem 1.4rem; border-radius: 8px; font-weight: 600; border: 0; cursor: pointer;
+      display: inline-block; margin-top: 1rem; background: var(--accent-strong); color: #fff;
+      padding: .65rem 1.5rem; border-radius: 9px; font-weight: 600; border: 0; cursor: pointer;
+      transition: background .2s;
     }
-    .btn:hover { background: #818cf8; }
-    #status { margin: 1.25rem 0; color: #a1a1aa; min-height: 1.4em; }
-    #result { width: min(900px, 100%); display: none; }
-    #result img { width: 100%; border-radius: 12px; border: 1px solid #27272a; }
-    table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: .92rem; }
-    th, td { text-align: left; padding: .55rem .7rem; border-bottom: 1px solid #27272a; }
-    th { color: #a1a1aa; font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
-    .ok { color: #34d399; font-weight: 600; }
-    .deny { color: #f87171; font-weight: 600; }
-    .plate { font-family: ui-monospace, monospace; background: #18181b; padding: .15rem .5rem; border-radius: 6px; }
-    footer { margin-top: auto; padding-top: 2.5rem; color: #52525b; font-size: .85rem; }
-    footer a { color: #818cf8; }
+    .btn:hover { background: var(--accent); }
+
+    /* Samples */
+    .samples { margin-top: 1.1rem; text-align: center; }
+    .samples p { font-size: .82rem; color: #71717a; margin-bottom: .55rem; text-transform: uppercase; letter-spacing: .08em; }
+    .thumbs { display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap; }
+    .thumbs img {
+      width: 108px; height: 66px; object-fit: cover; border-radius: 9px;
+      border: 2px solid var(--line); cursor: pointer; transition: border-color .2s, transform .15s;
+    }
+    .thumbs img:hover { border-color: var(--accent); transform: translateY(-3px); }
+
+    /* Pipeline steps */
+    .steps { display: none; justify-content: center; gap: .4rem; flex-wrap: wrap; margin: 1.6rem 0 .4rem; }
+    .step {
+      font-size: .8rem; padding: .4rem .8rem; border-radius: 999px;
+      border: 1px solid var(--line); color: #71717a; background: var(--raised);
+      transition: all .3s;
+    }
+    .step.active { border-color: var(--accent); color: var(--accent); }
+    .step.done { border-color: #34d39955; color: var(--ok); }
+    .step.done::before { content: "✓ "; }
+    #status { text-align: center; margin: .9rem 0; color: #a1a1aa; min-height: 1.4em; }
+
+    /* Results */
+    #result { display: none; margin-top: 1.6rem; animation: rise .5s ease; }
+    @keyframes rise { from { opacity: 0; transform: translateY(18px); } }
+    #preview { width: 100%; border-radius: 14px; border: 1px solid var(--line); }
+
+    .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: .9rem; margin-top: 1.1rem; }
+    .card {
+      background: var(--raised); border: 1px solid var(--line); border-radius: 14px;
+      padding: 1rem 1.15rem; animation: rise .45s ease both;
+    }
+    .card.deny { border-color: #f8717155; }
+    .card .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: .55rem; }
+    .card .veh { font-weight: 700; color: #fff; text-transform: capitalize; }
+    .gate { font-size: .78rem; font-weight: 700; padding: .25rem .6rem; border-radius: 999px; }
+    .gate.open { background: #34d39922; color: var(--ok); }
+    .gate.closed { background: #f8717122; color: var(--bad); }
+    .plate {
+      font-family: ui-monospace, monospace; letter-spacing: .1em; font-weight: 700;
+      background: #fff; color: #111; border: 2px solid #111; border-radius: 6px;
+      padding: .15rem .65rem; display: inline-block; margin: .25rem 0 .5rem;
+    }
+    .plate.none { background: #27272a; color: #71717a; border-color: #3f3f46; font-weight: 400; letter-spacing: 0; }
+    .meta { font-size: .82rem; color: #a1a1aa; }
+    .toll { font-size: 1.25rem; color: #fff; font-weight: 700; margin-top: .35rem; }
+    .reason { font-size: .8rem; margin-top: .3rem; }
+    .reason.bad { color: var(--bad); }
+
+    /* Session ledger */
+    #ledger { display: none; margin-top: 2.4rem; }
+    #ledger h2 { color: #fff; font-size: 1.05rem; margin-bottom: .3rem; }
+    #ledger .sub { font-size: .82rem; color: #71717a; margin-bottom: .8rem; }
+    .totals { display: flex; gap: 1.6rem; flex-wrap: wrap; margin-bottom: .9rem; }
+    .totals div b { color: #fff; font-size: 1.15rem; display: block; }
+    .totals div span { font-size: .78rem; color: #71717a; }
+    table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+    th, td { text-align: left; padding: .5rem .65rem; border-bottom: 1px solid var(--line); }
+    th { color: #71717a; font-size: .72rem; text-transform: uppercase; letter-spacing: .07em; }
+    td.ok { color: var(--ok); } td.deny { color: var(--bad); }
+
+    footer { text-align: center; margin-top: 3.5rem; color: #52525b; font-size: .85rem; }
+    footer a { color: var(--accent); }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
   </style>
 </head>
 <body>
-  <h1>🛣️ Smart Tolling System</h1>
-  <p class="sub">Upload a photo of traffic — AI detects vehicles, reads plates, and prices the toll.</p>
+  <div class="wrap">
+    <header>
+      <h1>🛣️ Smart Tolling <span class="grad">without stopping</span></h1>
+      <p class="tagline">
+        Even with FASTag, a damaged or missing tag stalls the whole lane.
+        This system reads the vehicle itself — class, plate, toll, and gate
+        decision from a single camera frame, before the driver has to brake.
+      </p>
+    </header>
 
-  <label class="drop" id="drop">
-    <input type="file" id="file" accept="image/jpeg,image/png" />
-    <div>📷 Drop an image here, or click to choose</div>
-    <span class="btn">Choose Image</span>
-  </label>
+    <div class="stats">
+      <div class="stat"><b>5–10%</b><span>of electronic tag reads fail — those vehicles queue up for manual processing</span><small>industry-reported FASTag exception rates</small></div>
+      <div class="stat"><b>&lt; 1s</b><span>for this pipeline to classify a vehicle, read its plate, and price the toll (warm, CPU-only)</span><small>measured on Apple Silicon, no GPU</small></div>
+      <div class="stat"><b>Real-time flags</b><span>blacklisted or stolen vehicles are denied at the gate the moment the plate is read</span><small>demo blacklist: MH12DE1433</small></div>
+    </div>
 
-  <p id="status"></p>
+    <label class="drop" id="drop">
+      <input type="file" id="file" accept="image/jpeg,image/png" />
+      <span class="icon">📷</span>
+      <div>Drop a traffic photo here, or click to choose</div>
+      <span class="btn">Choose Image</span>
+    </label>
 
-  <div id="result">
-    <img id="preview" alt="Annotated detection result" />
-    <table id="table">
-      <thead>
-        <tr><th>Vehicle</th><th>Plate</th><th>OCR conf.</th><th>Toll</th><th>Gate</th></tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+    <div class="samples" id="samples" hidden>
+      <p>or try an example</p>
+      <div class="thumbs" id="thumbs"></div>
+    </div>
+
+    <div class="steps" id="steps">
+      <span class="step" data-step="0">Detecting vehicles</span>
+      <span class="step" data-step="1">Locating plate</span>
+      <span class="step" data-step="2">Reading plate (OCR)</span>
+      <span class="step" data-step="3">Pricing &amp; gate check</span>
+    </div>
+    <p id="status"></p>
+
+    <div id="result">
+      <img id="preview" alt="Annotated detection result" />
+      <div class="cards" id="cards"></div>
+    </div>
+
+    <div id="ledger">
+      <h2>📊 Session ledger</h2>
+      <p class="sub">Every processed vehicle becomes a toll transaction — the raw material for fraud analytics (duplicate plates, impossible travel times, revenue leakage).</p>
+      <div class="totals">
+        <div><b id="t-veh">0</b><span>vehicles processed</span></div>
+        <div><b id="t-rev">₹0</b><span>toll collected</span></div>
+        <div><b id="t-deny">0</b><span>gate denials</span></div>
+      </div>
+      <table>
+        <thead><tr><th>Time</th><th>Vehicle</th><th>Plate</th><th>Toll</th><th>Gate</th></tr></thead>
+        <tbody id="ledger-body"></tbody>
+      </table>
+    </div>
+
+    <footer>
+      YOLOv8 vehicle + plate detection · EasyOCR · FastAPI ·
+      <a href="https://github.com/AnshulNimmala003/smart-tolling-sytems-" rel="noopener">source on GitHub</a>
+    </footer>
   </div>
 
-  <footer>
-    YOLOv8 vehicle + plate detection · EasyOCR ·
-    <a href="https://github.com/AnshulNimmala003/smart-tolling-sytems-" rel="noopener">source on GitHub</a>
-  </footer>
-
   <script>
-    const drop = document.getElementById("drop");
-    const fileInput = document.getElementById("file");
-    const statusEl = document.getElementById("status");
-    const result = document.getElementById("result");
-    const preview = document.getElementById("preview");
-    const tbody = document.querySelector("#table tbody");
+    const $ = (id) => document.getElementById(id);
+    const stepEls = [...document.querySelectorAll(".step")];
+    const ledger = { vehicles: 0, revenue: 0, denials: 0 };
+    let stepTimer;
 
+    // ---- example thumbnails -------------------------------------------------
+    fetch("/api/samples").then(r => r.json()).then(({ samples }) => {
+      if (!samples.length) return;
+      $("samples").hidden = false;
+      for (const name of samples) {
+        const img = document.createElement("img");
+        img.src = `/samples/${name}`;
+        img.alt = "Example traffic photo";
+        img.title = "Run this example";
+        img.onclick = async () => {
+          const blob = await (await fetch(img.src)).blob();
+          processFile(new File([blob], name, { type: "image/jpeg" }));
+        };
+        $("thumbs").appendChild(img);
+      }
+    }).catch(() => {});
+
+    // ---- pipeline-step animation -------------------------------------------
+    function startSteps() {
+      $("steps").style.display = "flex";
+      stepEls.forEach(s => s.classList.remove("active", "done"));
+      let i = 0;
+      stepEls[0].classList.add("active");
+      stepTimer = setInterval(() => {
+        if (i < stepEls.length - 1) {
+          stepEls[i].classList.replace("active", "done");
+          stepEls[++i].classList.add("active");
+        }
+      }, 900);
+    }
+    function finishSteps() {
+      clearInterval(stepTimer);
+      stepEls.forEach(s => { s.classList.remove("active"); s.classList.add("done"); });
+    }
+
+    // ---- main flow ----------------------------------------------------------
     async function processFile(file) {
       if (!file) return;
-      statusEl.textContent = "Analyzing… (first request loads the models, ~20s)";
-      result.style.display = "none";
+      $("result").style.display = "none";
+      $("status").textContent = "";
+      startSteps();
 
       const body = new FormData();
       body.append("file", file);
@@ -86,30 +238,63 @@
         const res = await fetch("/api/process", { method: "POST", body });
         if (!res.ok) throw new Error((await res.json()).detail || res.statusText);
         const data = await res.json();
-
-        preview.src = data.annotated_image;
-        tbody.innerHTML = "";
-        for (const v of data.vehicles) {
-          const t = v.toll;
-          tbody.insertAdjacentHTML("beforeend", `
-            <tr>
-              <td>${v.label} (${Math.round(v.confidence * 100)}%)</td>
-              <td>${v.plate_text ? `<span class="plate">${v.plate_text}</span>` : "—"}</td>
-              <td>${v.extras?.ocr_confidence ?? "—"}</td>
-              <td>₹${t.toll_amount}</td>
-              <td class="${t.allowed ? "ok" : "deny"}">${t.allowed ? "OPEN" : "CLOSED"} · ${t.reason}</td>
-            </tr>`);
-        }
-        statusEl.textContent = data.vehicles.length
-          ? `Done in ${data.processing_seconds}s — ${data.vehicles.length} vehicle(s) found.`
-          : "No vehicles detected — try a clearer photo.";
-        result.style.display = "block";
+        finishSteps();
+        render(data);
       } catch (err) {
-        statusEl.textContent = "Error: " + err.message;
+        clearInterval(stepTimer);
+        $("steps").style.display = "none";
+        $("status").textContent = "Error: " + err.message;
       }
     }
 
-    fileInput.addEventListener("change", () => processFile(fileInput.files[0]));
+    function render(data) {
+      $("preview").src = data.annotated_image;
+      const cards = $("cards");
+      cards.innerHTML = "";
+
+      data.vehicles.forEach((v, i) => {
+        const t = v.toll, open = t.allowed;
+        const card = document.createElement("div");
+        card.className = "card" + (open ? "" : " deny");
+        card.style.animationDelay = `${i * 120}ms`;
+        card.innerHTML = `
+          <div class="top">
+            <span class="veh">${v.label} · ${Math.round(v.confidence * 100)}%</span>
+            <span class="gate ${open ? "open" : "closed"}">${open ? "GATE OPEN" : "GATE CLOSED"}</span>
+          </div>
+          <span class="plate ${v.plate_text ? "" : "none"}">${v.plate_text || "plate unreadable"}</span>
+          <div class="meta">OCR confidence: ${v.extras?.ocr_confidence ?? "—"}</div>
+          <div class="toll">₹${t.toll_amount}</div>
+          <div class="reason ${open ? "" : "bad"}">${t.reason}</div>`;
+        cards.appendChild(card);
+
+        ledger.vehicles += 1;
+        ledger.revenue += open ? t.toll_amount : 0;
+        ledger.denials += open ? 0 : 1;
+        $("ledger-body").insertAdjacentHTML("afterbegin", `
+          <tr>
+            <td>${new Date().toLocaleTimeString()}</td>
+            <td>${v.label}</td>
+            <td>${v.plate_text || "—"}</td>
+            <td>₹${t.toll_amount}</td>
+            <td class="${open ? "ok" : "deny"}">${open ? "OPEN" : "CLOSED"}</td>
+          </tr>`);
+      });
+
+      $("t-veh").textContent = ledger.vehicles;
+      $("t-rev").textContent = "₹" + ledger.revenue;
+      $("t-deny").textContent = ledger.denials;
+      $("ledger").style.display = ledger.vehicles ? "block" : "none";
+
+      $("status").textContent = data.vehicles.length
+        ? `Done in ${data.processing_seconds}s — ${data.vehicles.length} vehicle(s) processed.`
+        : "No vehicles detected — try a clearer photo.";
+      $("result").style.display = "block";
+    }
+
+    // ---- input events -------------------------------------------------------
+    $("file").addEventListener("change", () => processFile($("file").files[0]));
+    const drop = $("drop");
     drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
     drop.addEventListener("dragleave", () => drop.classList.remove("over"));
     drop.addEventListener("drop", (e) => {
