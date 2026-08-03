@@ -97,11 +97,31 @@ scripts/         # CLI runner + benchmark
 data/samples/    # OpenALPR benchmark test images (gitignored)
 ```
 
+## Fraud analytics (Phase 4)
+
+The camera pipeline produces toll transactions; the analytics layer finds the
+money leaking out of them.
+
+```bash
+python analytics/simulate.py            # month of transactions, fraud injected + labeled
+python analytics/fraud.py               # rules + Isolation Forest, scored vs ground truth
+streamlit run analytics/dashboard.py    # operations & fraud dashboard
+```
+
+- **Simulator** generates ~13k transactions across 3 plazas with labeled fraud:
+  cloned plates, trucks billed as cars, blacklisted vehicles, unpaid passages.
+- **Detector** combines rules (impossible travel speed, blacklist, fee
+  mismatch, unpaid) with an Isolation Forest for unanticipated outliers.
+- **Scored against ground truth**: 100% recall / 81% precision on injected
+  fraud, ₹41k estimated leakage recovered in the simulated month.
+- **Dashboard**: KPI tiles, revenue & leakage trends, fraud-type breakdown,
+  and a flagged-transaction drill-down table.
+
 ## Roadmap
 
+- [x] Fraud analytics: cloned plates, impossible travel, fee mismatch,
+  blacklists (rules + Isolation Forest) + Streamlit dashboard
 - [ ] Fine-tune plate detector on Indian plates (Kaggle dataset)
 - [ ] Plate-specialized OCR (TrOCR / PaddleOCR comparison)
-- [ ] Video pipeline with vehicle tracking (ByteTrack) → toll transaction log
-- [ ] Fraud analytics: duplicate plates, impossible travel times, blacklists
-  (Isolation Forest) + Streamlit dashboard
+- [ ] Video pipeline with vehicle tracking (ByteTrack) → real toll transaction log
 - [ ] Deploy demo to Hugging Face Spaces
